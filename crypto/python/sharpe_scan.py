@@ -1,7 +1,11 @@
-"""逐根盯市的 Sharpe 評估。進出場規則與 backtest.run_one 相同（隔根開盤進、同根先算停損）。"""
+"""逐根盯市的 Sharpe 評估（2026-09-24 版）。
+
+★ 2026-09-30 起已由 engine.py / optimize.py 取代，保留是為了能重現 SHARPE_RESULTS.md 的舊數字。
+"""
 import sys, datetime as d, numpy as np, pandas as pd
-R="/Users/august/Claude/Projects/投資"
-sys.path[:0]=[R+"/taiwan/python",R+"/crypto/python"]
+from pathlib import Path
+R=Path(__file__).resolve().parents[2]
+sys.path[:0]=[str(R/"taiwan"/"python"),str(R/"crypto"/"python")]
 import config, signals as sig, binance_data as bd
 BASE=config.params("crypto"); COST=config.costs("crypto")["commission_pct_per_side"]/100
 DATA={s:bd.load(s,"4h",d.date(2018,1,1),d.date(2026,9,24),verbose=False) for s in ["BTCUSDT","ETHUSDT"]}

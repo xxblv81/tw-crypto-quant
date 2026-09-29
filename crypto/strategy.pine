@@ -1,8 +1,10 @@
 //@version=5
-// 布林通道縮口突破策略 — 加密貨幣版 v3.2-CRYPTO（純多單）
+// 策略A｜布林通道縮口突破 — 加密貨幣版 v3.3-CRYPTO（純多單）
+// 命名：策略A＝本檔；策略B＝布林縮口×維加斯通道（其他策略/）。台股布林策略不屬於 A/B
+// v3.3（2026-09-30）：波動目標部位（40%）＋ 成交當根也有停損保護
 // v3.2（2026-09-24）：拿掉 2R 固定停利，改「收盤跌破 MA20 → 下一根開盤出場」
 // Python 回測 BINANCE:BTCUSDT 4H：Sharpe 2018~23 0.03→0.88、2024~26 0.89→1.66（crypto/SHARPE_RESULTS.md）
-strategy("布林縮口突破 v3.2-CRYPTO (多單)", overlay=true,
+strategy("策略A｜布林縮口突破 v3.3-CRYPTO (多單)", overlay=true,
      initial_capital        = 10000,
      default_qty_type       = strategy.percent_of_equity,
      default_qty_value      = 100,
@@ -49,8 +51,13 @@ useTrail = input.bool(false,"啟用移動停利", group=gEX, tooltip="回測顯�
 trigATR  = input.float(2.0, "移動停利啟動 = ATR x", minval=0.1, step=0.1, group=gEX)
 trailATR = input.float(1.0, "移動停利回撤 = ATR x", minval=0.1, step=0.1, group=gEX)
 
-// ─────────── 5 回測區間 ───────────
-gDT = "5 回測區間"
+// ─────────── 5 部位大小 ───────────
+gPS = "5 部位大小"
+useVT    = input.bool(true, "波動目標部位", group=gPS, tooltip="權重 = min(1, 目標 / 近 N 根年化波動)。BTC/ETH × 兩段期間四格 Sharpe 全改善、回撤全降")
+volTgt   = input.float(0.4, "年化波動目標 (0.4=40%)", minval=0.05, step=0.05, group=gPS, tooltip="目標越低 Sharpe 越高但報酬越少，這是風險偏好不是最佳化值")
+volLb    = input.int(180,   "波動回看 (根)", minval=10, group=gPS, tooltip="4H 圖 180 根 = 30 天")
+
+gDT = "6 回測區間"
 tStart  = input.time(timestamp("01 Jan 2019 00:00 +0000"), "起始", group=gDT)
 tEnd    = input.time(timestamp("01 Jan 2030 00:00 +0000"), "結束", group=gDT)
 inRange = time >= tStart and time <= tEnd
@@ -63,6 +70,9 @@ lower   = basis - dev
 bbw     = (upper - lower) / basis * 100
 atr     = ta.atr(atrLen)
 trendMA = ta.sma(close, trendLen)
+barsPerYear = 365 * 86400 / timeframe.in_seconds()
+realVol = ta.stdev(close / close[1] - 1, volLb) * math.sqrt(barsPerYear)
+posW    = useVT and realVol > 0 ? math.min(1.0, volTgt / realVol) : 1.0
 
 // 縮口：當根帶寬為區間最低（ta.lowest 含當根，必須用 <=）
 narrow   = bbw <= ta.lowest(bbw, bbwLen)
@@ -91,22 +101,36 @@ var float slPrice   = na
 var float tpPrice   = na
 var float trigPrice = na
 var float trailOff  = na
+var float sigAtr    = na
 
+// v3.3（2026-09-30 修）：舊版在「成交那根收盤後」才算停損，成交當根 4H 沒有停損保護，
+// 且 ATR 取的是成交那根、與 Python 回測（訊號那根）差一根。
+// 現在訊號當根就先用收盤價預掛停損（加密貨幣下一根開盤 ≈ 本根收盤），成交後再用實際成交價校正。
 if longCond and strategy.position_size == 0
-    strategy.entry("Long", strategy.long)
+    strategy.entry("Long", strategy.long, qty = strategy.equity * posW / close)
+    sigAtr  := atr
+    slPrice := close - slATR * atr
+    tpPrice := close + slATR * atr * rr
+    trigPrice := close + trigATR * atr
+    trailOff  := trailATR * atr / syminfo.mintick
 if shortCond and strategy.position_size == 0
     strategy.entry("Short", strategy.short)
+    sigAtr  := atr
+    slPrice := close + slATR * atr
+    tpPrice := close - slATR * atr * rr
+    trigPrice := close - trigATR * atr
+    trailOff  := trailATR * atr / syminfo.mintick
 
-// 部位成立當根，用實際成交均價計算出場價位（多空鏡像）
+// 部位成立當根，用實際成交均價 + 訊號那根的 ATR 校正出場價位（多空鏡像）
 if strategy.position_size != 0 and strategy.position_size[1] == 0
     e  = strategy.position_avg_price
     lg = strategy.position_size > 0
-    slPrice   := lg ? e - slATR * atr        : e + slATR * atr
-    tpPrice   := lg ? e + slATR * atr * rr   : e - slATR * atr * rr
-    trigPrice := lg ? e + trigATR * atr      : e - trigATR * atr
-    trailOff  := trailATR * atr / syminfo.mintick
+    slPrice   := lg ? e - slATR * sigAtr        : e + slATR * sigAtr
+    tpPrice   := lg ? e + slATR * sigAtr * rr   : e - slATR * sigAtr * rr
+    trigPrice := lg ? e + trigATR * sigAtr      : e - trigATR * sigAtr
+    trailOff  := trailATR * sigAtr / syminfo.mintick
 
-if strategy.position_size > 0
+if strategy.position_size > 0 or (longCond and strategy.position_size == 0)
     strategy.exit("Exit L", from_entry="Long",
          stop         = slPrice,
          limit        = useTP    ? tpPrice   : na,
@@ -117,7 +141,7 @@ exitLine = ta.sma(close, math.max(exitMa, 1))     // 每根都算，避免 ta.* 
 if strategy.position_size > 0 and exitMa > 0 and close < exitLine
     strategy.close("Long", comment="跌破均線")
 
-if strategy.position_size < 0
+if strategy.position_size < 0 or (shortCond and strategy.position_size == 0)
     strategy.exit("Exit S", from_entry="Short",
          stop         = slPrice,
          limit        = useTP    ? tpPrice   : na,

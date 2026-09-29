@@ -1,0 +1,121 @@
+Data: Binance spot 4H, 2018-01-01 ~ last closed bar 2026-09-29 12:00 UTC; cost 0.05%/side
+
+### 0. Full period 2018-26 (fixed parameters from markets.yaml)
+  BTC buy & hold              Sharpe  0.65  CAGR   23.2%  MDD  81.2%  PF   inf  n    0  expo  100%  multiple  6.2x
+  BTC v3.2 (100 % equity)     Sharpe  1.07  CAGR   23.5%  MDD  28.1%  PF  2.22  n  133  expo   13%  multiple  6.3x  avg weight 1.00  median hold 64h
+  BTC v3.3 (vol target 40%)   Sharpe  1.26  CAGR   23.1%  MDD  15.7%  PF  2.64  n  133  expo   13%  multiple  6.2x  avg weight 0.78  median hold 64h
+  ETH v3.3 (vol target 40%)   Sharpe  1.02  CAGR   18.8%  MDD  25.6%  PF  2.07  n  156  expo   14%  multiple  4.5x  avg weight 0.66  median hold 56h
+  BTC+ETH 50/50 v3.3          Sharpe  1.38  CAGR   21.6%  MDD  11.1%  multiple  5.5x
+
+### A. MA-exit plateau — BTCUSDT
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  buy & hold                   0.63   21.1%  81.2%    0   |    0.75   27.9%  53.0%    0
+  old: fixed 2R take-profit    0.03   -1.5%  33.1%   92   |    0.89   12.5%  10.9%   44
+  MA10 exit                    0.86   15.3%  21.0%  100   |    1.56   25.4%  10.3%   48
+  MA15 exit                    0.96   20.3%  25.4%   95   |    1.69   31.9%   9.0%   44
+  MA20 exit  <- adopted        0.88   19.7%  28.1%   91   |    1.66   32.2%   9.6%   42
+  MA30 exit                    0.77   18.9%  36.0%   85   |    1.46   33.5%  12.1%   39
+  MA50 exit                    1.01   29.4%  34.8%   76   |    1.23   28.5%  14.1%   38
+  MA100 exit                   0.89   25.7%  49.7%   62   |    1.41   36.2%  16.8%   29
+
+### A. MA-exit plateau — ETHUSDT
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  buy & hold                   0.67   20.8%  94.0%    0   |    0.42    5.9%  67.6%    0
+  old: fixed 2R take-profit    0.68   14.1%  30.0%   92   |   -0.10   -4.8%  37.6%   55
+  MA10 exit                    0.67   14.9%  19.5%  105   |    1.11   27.0%  22.7%   64
+  MA15 exit                    0.94   25.6%  25.7%  100   |    1.18   32.6%  26.4%   61
+  MA20 exit  <- adopted        0.97   28.3%  28.4%   96   |    0.87   22.8%  34.8%   60
+  MA30 exit                    1.00   31.5%  32.8%   87   |    1.32   45.1%  27.9%   49
+  MA50 exit                    0.81   27.0%  34.5%   82   |    1.29   47.3%  30.7%   44
+  MA100 exit                   0.91   35.2%  36.3%   67   |    1.47   60.5%  29.5%   36
+
+### B. Anchored walk-forward, 100 % equity (refit each January, objective = min(BTC, ETH) Sharpe)
+ year  exit_ma  volume_mult  squeeze_window  stop_atr  train_min_sharpe
+ 2020       20         1.00              30      2.00              1.00
+ 2021       20         1.00              20      1.50              1.44
+ 2022       50         1.00              10      1.50              1.28
+ 2023       50         1.00              30      1.50              1.04
+ 2024       20         1.00              10      2.00              1.19
+ 2025       20         1.00              10      3.00              1.20
+ 2026       20         1.00              20      3.00              1.14
+  BTCUSDT walk-forward OOS   2020-26  Sharpe  0.92  CAGR   21.8%  MDD  44.5%
+  BTCUSDT fixed config       2020-26  Sharpe  1.01  CAGR   20.9%  MDD  28.1%
+  BTCUSDT buy & hold         2020-26  Sharpe  0.91  CAGR   43.7%  MDD  76.6%
+  ETHUSDT walk-forward OOS   2020-26  Sharpe  0.87  CAGR   26.8%  MDD  38.0%
+  ETHUSDT fixed config       2020-26  Sharpe  1.11  CAGR   35.4%  MDD  34.8%
+  ETHUSDT buy & hold         2020-26  Sharpe  0.97  CAGR   56.7%  MDD  79.3%
+
+### B. Anchored walk-forward, vol target 40% (refit each January, objective = min(BTC, ETH) Sharpe)
+ year  exit_ma  volume_mult  squeeze_window  stop_atr  train_min_sharpe
+ 2020       20         1.00              30      2.00              1.03
+ 2021       20         1.00              20      1.50              1.58
+ 2022       50         1.00              30      1.50              1.35
+ 2023       50         1.00              20      1.50              1.25
+ 2024       20         1.00              10      2.00              1.30
+ 2025       20         1.00              10      2.00              1.33
+ 2026       50         1.00              30      1.50              1.30
+  BTCUSDT walk-forward OOS   2020-26  Sharpe  1.01  CAGR   19.7%  MDD  21.1%
+  BTCUSDT fixed config       2020-26  Sharpe  1.21  CAGR   21.2%  MDD  15.7%
+  BTCUSDT buy & hold         2020-26  Sharpe  0.91  CAGR   43.7%  MDD  76.6%
+  ETHUSDT walk-forward OOS   2020-26  Sharpe  0.97  CAGR   20.4%  MDD  29.3%
+  ETHUSDT fixed config       2020-26  Sharpe  1.17  CAGR   24.2%  MDD  25.6%
+  ETHUSDT buy & hold         2020-26  Sharpe  0.97  CAGR   56.7%  MDD  79.3%
+
+### C. Random-entry null (v3.2 exits, random entries, 2018-26)
+  BTCUSDT random entry (any bar                   ) median Sharpe  0.45, 95th pct  0.86, avg 342 trades | strategy  1.07 beats  99.4% of draws
+  BTCUSDT random entry (bars passing trend filter ) median Sharpe  0.85, 95th pct  1.17, avg 251 trades | strategy  1.07 beats  88.4% of draws
+  ETHUSDT random entry (any bar                   ) median Sharpe  0.23, 95th pct  0.63, avg 396 trades | strategy  0.94 beats  99.4% of draws
+  ETHUSDT random entry (bars passing trend filter ) median Sharpe  0.52, 95th pct  0.88, avg 281 trades | strategy  0.94 beats  98.0% of draws
+
+### D. Volatility-targeted sizing — BTCUSDT (weight = min(1, target / 30-day realised vol))
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  v3.2, 100 % equity           0.88   19.7%  28.1%   91   |    1.66   32.2%   9.6%   42
+  vol target 20%               1.13   12.6%   7.9%   91   |    1.78   18.4%   3.7%   42
+  vol target 30%               1.11   17.3%  11.8%   91   |    1.77   26.3%   5.5%   42
+  vol target 40%  <- adopted (v3.3) 1.06   19.4%  15.7%   91   |    1.74   31.7%   7.2%   42
+  vol target 60%               0.98   20.7%  22.4%   91   |    1.67   32.3%   9.4%   42
+  vol target 80%               0.93   20.6%  24.7%   91   |    1.66   32.2%   9.6%   42
+
+### D. Volatility-targeted sizing — ETHUSDT (weight = min(1, target / 30-day realised vol))
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  v3.2, 100 % equity           0.97   28.3%  28.4%   96   |    0.87   22.8%  34.8%   60
+  vol target 20%               1.05    9.2%  13.1%   96   |    0.94   10.2%  13.6%   60
+  vol target 30%               1.05   13.9%  19.0%   96   |    0.94   15.3%  19.8%   60
+  vol target 40%  <- adopted (v3.3) 1.07   18.9%  22.7%   96   |    0.92   18.6%  25.6%   60
+  vol target 60%               1.05   25.0%  24.9%   96   |    0.88   21.9%  33.1%   60
+  vol target 80%               1.02   28.3%  25.3%   96   |    0.87   22.8%  34.8%   60
+
+### D2. Vol target 40%, realised-vol lookback (Sharpe only matters here)
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  BTC lookback 10 days         1.11   20.8%  17.0%   91   |    1.67   29.8%   8.7%   42
+  BTC lookback 30 days         1.06   19.4%  15.7%   91   |    1.74   31.7%   7.2%   42
+  BTC lookback 60 days         1.02   18.2%  15.6%   91   |    1.74   30.7%   7.5%   42
+  ETH lookback 10 days         1.13   20.7%  20.4%   96   |    0.92   19.7%  25.9%   60
+  ETH lookback 30 days         1.07   18.9%  22.7%   96   |    0.92   18.6%  25.6%   60
+  ETH lookback 60 days         0.96   15.5%  22.2%   96   |    0.95   18.2%  23.8%   60
+
+### E. BTC + ETH, 50/50, rebalanced daily
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  v3.2 BTC+ETH                 1.18   25.6%  19.6%    0   |    1.37   28.4%  16.2%    0
+  v3.3 BTC+ETH (vol target 40%) 1.32   19.8%   9.8%    0   |    1.49   25.5%  11.1%    0
+
+### F. Sharpe 90% confidence interval (stationary block bootstrap, mean block 20 days, 2018-26)
+  BTC v3.2         Sharpe  1.07   90% CI [ 0.54,  1.59]
+  BTC v3.3         Sharpe  1.26   90% CI [ 0.75,  1.72]
+  ETH v3.3         Sharpe  1.02   90% CI [ 0.47,  1.53]
+  BTC+ETH v3.3     Sharpe  1.38   90% CI [ 0.85,  1.82]
+  BTC buy & hold   Sharpe  0.65   90% CI [ 0.07,  1.25]
+
+### G. Alternatives not adopted — BTCUSDT (100 % equity)
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  v3.2 baseline (4H)           0.88   19.7%  28.1%   91   |    1.66   32.2%   9.6%   42
+  breakout on candle high      0.68   14.0%  36.7%  105   |    1.06   17.9%  12.1%   45
+  volume_mult 1.0              1.26   37.5%  29.8%  129   |    1.40   28.6%  13.5%   57
+  same rules on 1H             0.67   15.1%  28.3%  409   |    0.82   13.8%  18.4%  197
+
+### G. Alternatives not adopted — ETHUSDT (100 % equity)
+                              2018-23: Sharpe  CAGR   MDD    n   |   2024-26: Sharpe  CAGR   MDD    n
+  v3.2 baseline (4H)           0.97   28.3%  28.4%   96   |    0.87   22.8%  34.8%   60
+  breakout on candle high      0.85   24.1%  29.8%   99   |    1.15   32.3%  24.6%   51
+  volume_mult 1.0              1.05   36.0%  39.3%  117   |    0.89   24.2%  33.0%   68
+  same rules on 1H             0.54   13.2%  43.1%  434   |    0.91   23.8%  17.8%  203

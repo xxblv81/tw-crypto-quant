@@ -78,6 +78,10 @@ def fetch(symbol: str, interval: str, start: dt.date, end: dt.date,
     df = pd.DataFrame(rows, columns=[
         "open_time", "Open", "High", "Low", "Close", "Volume", "close_time",
         "Turnover", "trades", "tb_base", "tb_quote", "ignore"])
+    # 2026-09-30 修：Binance 會回傳「還在進行中」的最後一根，OHLCV 是半成品。
+    # 舊版照存進快取且永不更新 → 最後一根可能出假訊號。只留已收盤的 K 棒。
+    now_ms = int(time.time() * 1000)
+    df = df[pd.to_numeric(df["close_time"]) < now_ms]
     df = df[["open_time", "Open", "High", "Low", "Close", "Volume", "Turnover"]]
     for c in ("Open", "High", "Low", "Close", "Volume", "Turnover"):
         df[c] = pd.to_numeric(df[c], errors="coerce")

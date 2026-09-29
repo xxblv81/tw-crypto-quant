@@ -64,6 +64,11 @@ crypto:
     rr: 2.0                  # take_profit=false 時不使用
     exit_ma: 20
     exit_next_open: true     # 跌破後下一根開盤成交（與 TV strategy.close 一致）
+    # ── 部位大小（2026-09-30 新增）── 權重 = min(1, vol_target / 近 vol_lookback 根年化波動)
+    # BTC/ETH × 2018-23/2024-26 四格 Sharpe 全改善、回撤全降（BTC 2018-23 回撤 28.1%→15.7%）。
+    # 目標越低 Sharpe 越高（單調）→ 40% 是風險偏好的選擇，不是最佳化出來的值。見 crypto/README.md
+    vol_target: 0.4          # 年化波動目標；0 = 關閉（100% 資金）
+    vol_lookback: 180        # 根數；4H 圖 180 根 = 30 天
     trailing: false          # 開啟會砍掉贏家 PF 1.44→1.36
     trail_trigger_atr: 2.0
     trail_offset_atr: 1.0

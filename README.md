@@ -1,17 +1,20 @@
 # tw-crypto-quant
 
+> **English write-up:** [Strategy A — BTC/USDT 4H Bollinger squeeze breakout — rules, bugs found, walk-forward
+> and robustness tests](crypto/README.md)
+
 台股與加密貨幣的量化策略研究。資料全部來自**證交所官方 API** 與 Binance 公開 API，
 回測含除權息還原、交易成本與漲停買不到的處理。
 
-> ⚠ **這不是投資建議。** 下面所有回測數字都是**樣本內**結果（只有動能選股做過樣本外驗證），
+> ⚠ **這不是投資建議。** 下面的回測數字除非註明，都是**樣本內**結果（做過樣本外驗證的只有動能選股與 BTC 布林策略的 walk-forward），
 > 台股布林策略的樣本還有倖存者偏差。策略訊號的定位是「選股雷達」，實際買不買由人判斷。
 
 ## 策略一覽
 
 | 策略 | 市場 | 狀態 | 代表性結果（回測期間） | 詳細報告 |
 |---|---|---|---|---|
-| **布林通道縮口突破** | BTCUSDT 4H | ✅ Python 已驗證，TradingView 尚未重跑 | PF 1.92（2018～2023）／3.38（2024～2026） | [`crypto/SHARPE_RESULTS.md`](crypto/SHARPE_RESULTS.md) |
-| ↳ 同參數套 ETH | ETHUSDT 4H | ⚠️ 舊出場虧損，新出場轉正 | PF 2.09（2018～2023）／1.80（2024～2026）；舊 2R 停利 2024～2026 為 0.96 | [`crypto/SHARPE_RESULTS.md`](crypto/SHARPE_RESULTS.md) |
+| **策略A｜布林通道縮口突破 v3.3** | BTCUSDT 4H | ✅ Python 已驗證（含 walk-forward），TradingView 尚未重跑 | walk-forward 樣本外 Sharpe 1.01、回撤 21.1%（2020～2026）；買進持有 0.91／76.6% | [`crypto/README.md`](crypto/README.md) |
+| ↳ 同規則套 ETH | ETHUSDT 4H | ⚠️ 當對照組，不是主策略 | walk-forward 樣本外 Sharpe 0.97、回撤 29.3%（2020～2026） | [`crypto/README.md`](crypto/README.md) |
 | **布林通道縮口突破** | 台股日線 | 🟡 可用，有偏誤待修 | 全市場 PF 約 1.4～1.5（2019～2026；排除金融等類股**之前**測得，現行參數未重跑） | [`taiwan/TUNING_LOG.md`](taiwan/TUNING_LOG.md) |
 | **動能選股** | 台股個股期 | ✅ 樣本外通過（但樣本外三年皆多頭） | PF 1.72（2019～2023）→ 1.71（2024～2026） | [`taiwan/MOMENTUM_OOS.md`](taiwan/MOMENTUM_OOS.md) |
 | **大戶籌碼輪動** | 台股週線 | ⚪ 未回測 | 每週清單，只當雷達 | [`taiwan/MOMENTUM_HOLDERS.md`](taiwan/MOMENTUM_HOLDERS.md) |
@@ -47,12 +50,12 @@
 | Q3 | 1.31 | 67% | +7.8% |
 | **Q4 權值股** | **1.92** | **86%** | **+62.1%** |
 
-### BTC：4H
+### 策略A｜BTC 4H
 
 縮口後收盤突破上軌、站上 MA200 與 MA60、量 > 20 根均量 × 1.5 進場；
-停損 2 ATR，**收盤跌破 MA20 出場**（2026-09 從固定 2R 停利改過來，
-Sharpe 在 2018～23 由 0.03 升到 0.88、2024～26 由 0.89 升到 1.66）。
-注意：平均曝險只有 13～16%，Sharpe 高有一部分是因為經常空手；TradingView 端尚未用新出場重跑。
+停損 2 ATR，**收盤跌破 MA20 出場**，部位大小依近 30 天波動調整（目標年化 40%）。
+完整說明（英文）、除錯紀錄、walk-forward 與穩健性檢驗見 [`crypto/README.md`](crypto/README.md)。
+注意：平均曝險只有 13～14%，Sharpe 高有一部分是因為經常空手；TradingView 端尚未用 v3.3 重跑。
 
 ## 動能選股
 
@@ -146,8 +149,15 @@ taiwan/
     momentum_*.py      動能選股
     cache/             資料快取（不進版控，除了 bb_picks/ 與 picks/）
 crypto/
-  strategy.pine        BTC 布林策略（TradingView）
-  python/              Binance 資料＋參數掃描
+  README.md            BTC 布林策略完整說明（英文）
+  strategy.pine        BTC 布林策略（TradingView，v3.3）
+  equity.png           績效曲線圖
+  python/
+    engine.py          逐根盯市回測引擎
+    audit.py           回測正確性稽核（前視、對帳、跳空、成本、延遲）
+    optimize.py        walk-forward、隨機進場對照、波動目標、bootstrap
+    report.py          產生 equity.png
+    binance_data.py    Binance 公開 K 線下載＋快取
   arb/                 跨所套利研究（rejected）
 ```
 

@@ -49,6 +49,8 @@ PARAM_MAP = {
     "take_profit": "useTP",
     "rr": "rr",
     "exit_ma": "exitMa",
+    "vol_target": "volTgt",
+    "vol_lookback": "volLb",
     "trailing": "useTrail",
     "trail_trigger_atr": "trigATR",
     "trail_offset_atr": "trailATR",
@@ -62,7 +64,7 @@ ENTRY_MODE = {"upper_break": "上軌突破", "mid_reclaim": "中線反轉", "mid
 OPTIONAL = {"trend_filter_2", "trend_ma2_length", "allow_short", "allow_long",
             "mid_cross_window", "mid_confirm_min_gap", "require_bull_candle",
             "volume_since_cross_mult", "ma_stack", "ma_stack_rising", "expand_mult",
-            "break_on_high", "exit_ma"}
+            "break_on_high", "exit_ma", "vol_target", "vol_lookback"}
 
 # costs 區塊 → strategy() 標頭參數
 COST_MAP = {

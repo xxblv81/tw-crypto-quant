@@ -1,0 +1,26 @@
+
+===== BTCUSDT  2018-01-01 ~ 2026-09-29 12:00 UTC, 19,146 bars
+[1] look-ahead: 0 mismatching cells across 12 truncation points -> PASS
+[2] parity: run_one 133 trades PF 2.221 | engine(no gap fill) 133 trades PF 2.221
+[3] gap-through-stop: 0 of 38 stop exits filled below the stop; Sharpe 1.074 -> 1.074
+[4] cost per side (commission+slippage) -> full-period stats
+    commission 0.05% + slippage 0.00% per side  Sharpe  1.07  CAGR   23.5%  MDD  28.1%  PF  2.22  n  133  expo   13%
+    commission 0.05% + slippage 0.05% per side  Sharpe  1.00  CAGR   21.6%  MDD  29.9%  PF  2.10  n  133  expo   13%
+    commission 0.10% + slippage 0.00% per side  Sharpe  1.00  CAGR   21.6%  MDD  29.9%  PF  2.10  n  133  expo   13%
+    commission 0.10% + slippage 0.05% per side  Sharpe  0.93  CAGR   19.8%  MDD  31.7%  PF  1.98  n  133  expo   13%
+    commission 0.20% + slippage 0.00% per side  Sharpe  0.86  CAGR   18.0%  MDD  33.4%  PF  1.88  n  133  expo   13%
+[5] entry one bar late: Sharpe  0.97  CAGR   20.1%  MDD  22.6%  PF  2.03  n  133  expo   12%
+    baseline:           Sharpe  1.07  CAGR   23.5%  MDD  28.1%  PF  2.22  n  133  expo   13%
+
+===== ETHUSDT  2018-01-01 ~ 2026-09-29 12:00 UTC, 19,146 bars
+[1] look-ahead: 0 mismatching cells across 12 truncation points -> PASS
+[2] parity: run_one 156 trades PF 1.969 | engine(no gap fill) 156 trades PF 1.969
+[3] gap-through-stop: 0 of 35 stop exits filled below the stop; Sharpe 0.940 -> 0.940
+[4] cost per side (commission+slippage) -> full-period stats
+    commission 0.05% + slippage 0.00% per side  Sharpe  0.94  CAGR   26.6%  MDD  34.8%  PF  1.97  n  156  expo   14%
+    commission 0.05% + slippage 0.05% per side  Sharpe  0.88  CAGR   24.3%  MDD  36.3%  PF  1.87  n  156  expo   14%
+    commission 0.10% + slippage 0.00% per side  Sharpe  0.88  CAGR   24.3%  MDD  36.3%  PF  1.87  n  156  expo   14%
+    commission 0.10% + slippage 0.05% per side  Sharpe  0.82  CAGR   22.1%  MDD  37.7%  PF  1.79  n  156  expo   14%
+    commission 0.20% + slippage 0.00% per side  Sharpe  0.76  CAGR   19.9%  MDD  39.2%  PF  1.71  n  156  expo   14%
+[5] entry one bar late: Sharpe  0.71  CAGR   17.9%  MDD  40.8%  PF  1.67  n  152  expo   13%
+    baseline:           Sharpe  0.94  CAGR   26.6%  MDD  34.8%  PF  1.97  n  156  expo   14%
