@@ -274,7 +274,13 @@ Q1 5/15、Q2 8/14、Q3 11/14、年報 3/31，回測要用公布期限當可見�
 
 ## GitHub（2026-09-29 建立）
 
-**私人 repo：https://github.com/xxblv81/tw-crypto-quant**（帳號 `xxblv81`，`gh` 已登入並設為 git 憑證）
+**公開 repo：https://github.com/xxblv81/tw-crypto-quant**（帳號 `xxblv81`，`gh` 已登入並設為 git 憑證）
+2026-09-29 建立時為私人，同日依使用者指示改公開。
+
+- ★ **commit 信箱一律用 GitHub 匿名信箱** `144825749+xxblv81@users.noreply.github.com`（已設在本 repo 的 git config）。
+  公開前已改寫歷史，把個人 gmail 從所有 commit 移除。**不要改回個人信箱。**
+- ★ 公開 repo 裡的東西任何人都看得到：參數、回測報告、`bb_picks/` 每天選了哪些股票。
+  推之前確認沒有 token／API key（`外部工具/.env` 已排除）。
 
 - 只放程式與研究結論（約 1.4 MB）。快取 1.9 GB 全部排除，可用 `twse.py` 等重建。
 - ★ **唯一例外是 `cache/bb_picks/` 與 `cache/picks/`** —— 樣本外選股紀錄，過了當天就無法重建，
