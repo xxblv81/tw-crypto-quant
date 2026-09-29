@@ -1,0 +1,148 @@
+//@version=5
+// ============================================================
+// 台股布林縮口突破 — 日線選股器
+// 一次掃 20 檔，表格列出今天出現訊號 / 正在醞釀的標的
+// 用法：套在任何圖表上即可（掃描標的由參數設定，與當前圖表無關）
+// ============================================================
+indicator("台股縮口突破 選股器", overlay=false)
+
+// ─────────── 掃描條件 ───────────
+gC = "掃描條件"
+length   = input.int(20,   "布林通道週期", minval=5,  group=gC)
+mult     = input.float(2.0,"標準差倍數",   minval=0.5, step=0.1, group=gC)
+bbwLen   = input.int(20,   "縮口回看週期", minval=5,  group=gC)
+sqWin    = input.int(20,   "縮口有效期 (根)", minval=1, group=gC)
+trendLen = input.int(200,  "趨勢均線長度", minval=20, group=gC)
+useTrend = input.bool(true,"只顯示站上趨勢均線的標的", group=gC)
+watchDist= input.float(3.0,"「待突破」門檻：距上軌 % 以內", minval=0.1, step=0.5, group=gC)
+
+gD = "顯示"
+showAll  = input.bool(false, "顯示全部（含無訊號）", group=gD)
+tblPos   = input.string("右上", "表格位置", options=["右上","右下","左上","左下"], group=gD)
+txtSize  = input.string("小",   "字級", options=["極小","小","中"], group=gD)
+
+// ─────────── 掃描清單 ───────────
+gS = "掃描標的（可自行替換）"
+s01 = input.symbol("TWSE:2330", "01", group=gS)
+s02 = input.symbol("TWSE:2317", "02", group=gS)
+s03 = input.symbol("TWSE:2454", "03", group=gS)
+s04 = input.symbol("TWSE:2308", "04", group=gS)
+s05 = input.symbol("TWSE:2382", "05", group=gS)
+s06 = input.symbol("TWSE:3231", "06", group=gS)
+s07 = input.symbol("TWSE:2603", "07", group=gS)
+s08 = input.symbol("TWSE:2881", "08", group=gS)
+s09 = input.symbol("TWSE:2891", "09", group=gS)
+s10 = input.symbol("TWSE:2412", "10", group=gS)
+s11 = input.symbol("TWSE:3008", "11", group=gS)
+s12 = input.symbol("TWSE:6669", "12", group=gS)
+s13 = input.symbol("TWSE:3661", "13", group=gS)
+s14 = input.symbol("TWSE:2379", "14", group=gS)
+s15 = input.symbol("TWSE:2357", "15", group=gS)
+s16 = input.symbol("TWSE:2409", "16", group=gS)
+s17 = input.symbol("TWSE:1301", "17", group=gS)
+s18 = input.symbol("TWSE:2002", "18", group=gS)
+s19 = input.symbol("TWSE:2615", "19", group=gS)
+s20 = input.symbol("TWSE:0050", "20", group=gS)
+
+// ─────────── 計算核心 ───────────
+calc() =>
+    basis  = ta.sma(close, length)
+    dev    = mult * ta.stdev(close, length)
+    up     = basis + dev
+    lo     = basis - dev
+    bbw    = (up - lo) / basis * 100
+    // 縮口：當根帶寬為區間最低（ta.lowest 含當根，必須用 <=）
+    narrow = bbw <= ta.lowest(bbw, bbwLen)
+    bs     = ta.barssince(narrow)
+    sqOK   = not na(bs) and bs <= sqWin
+    trMA   = ta.sma(close, trendLen)
+    trUp   = close > trMA
+    expand = bbw > bbw[1]
+    brk    = ta.crossover(close, up)
+    fired  = sqOK and expand and brk and (not useTrend or trUp)
+    dist   = (up - close) / close * 100
+    near   = sqOK and not fired and dist >= 0 and dist <= watchDist and (not useTrend or trUp)
+    chg    = (close - close[1]) / close[1] * 100
+    [fired ? 1 : 0, near ? 1 : 0, bbw, dist, nz(bs, 999), trUp ? 1 : 0, close, chg]
+
+get(sym) => request.security(sym, "D", calc(), lookahead=barmerge.lookahead_off)
+
+[f01,n01,w01,d01,b01,t01,c01,g01] = get(s01)
+[f02,n02,w02,d02,b02,t02,c02,g02] = get(s02)
+[f03,n03,w03,d03,b03,t03,c03,g03] = get(s03)
+[f04,n04,w04,d04,b04,t04,c04,g04] = get(s04)
+[f05,n05,w05,d05,b05,t05,c05,g05] = get(s05)
+[f06,n06,w06,d06,b06,t06,c06,g06] = get(s06)
+[f07,n07,w07,d07,b07,t07,c07,g07] = get(s07)
+[f08,n08,w08,d08,b08,t08,c08,g08] = get(s08)
+[f09,n09,w09,d09,b09,t09,c09,g09] = get(s09)
+[f10,n10,w10,d10,b10,t10,c10,g10] = get(s10)
+[f11,n11,w11,d11,b11,t11,c11,g11] = get(s11)
+[f12,n12,w12,d12,b12,t12,c12,g12] = get(s12)
+[f13,n13,w13,d13,b13,t13,c13,g13] = get(s13)
+[f14,n14,w14,d14,b14,t14,c14,g14] = get(s14)
+[f15,n15,w15,d15,b15,t15,c15,g15] = get(s15)
+[f16,n16,w16,d16,b16,t16,c16,g16] = get(s16)
+[f17,n17,w17,d17,b17,t17,c17,g17] = get(s17)
+[f18,n18,w18,d18,b18,t18,c18,g18] = get(s18)
+[f19,n19,w19,d19,b19,t19,c19,g19] = get(s19)
+[f20,n20,w20,d20,b20,t20,c20,g20] = get(s20)
+
+// ─────────── 表格 ───────────
+tp = tblPos == "右上" ? position.top_right : tblPos == "右下" ? position.bottom_right : tblPos == "左上" ? position.top_left : position.bottom_left
+ts = txtSize == "極小" ? size.tiny : txtSize == "小" ? size.small : size.normal
+
+var table t = table.new(tp, 6, 22, border_width=1)
+
+shortName(s) =>
+    a = str.split(s, ":")
+    array.size(a) > 1 ? array.get(a, 1) : s
+
+f_row(_r, _sym, _f, _n, _bbw, _dist, _bs, _tr, _px, _chg) =>
+    show = _f == 1 or _n == 1 or showAll
+    if show
+        stat  = _f == 1 ? "突破" : _n == 1 ? "待突破" : "—"
+        bgc   = _f == 1 ? color.new(color.lime, 55) : _n == 1 ? color.new(color.orange, 65) : color.new(color.gray, 85)
+        table.cell(t, 0, _r, shortName(_sym), text_color=color.white, text_size=ts, bgcolor=bgc)
+        table.cell(t, 1, _r, stat,            text_color=color.white, text_size=ts, bgcolor=bgc)
+        table.cell(t, 2, _r, str.tostring(_px, "#.##"),   text_color=color.white, text_size=ts)
+        table.cell(t, 3, _r, str.tostring(_chg, "+#.##;-#.##") + "%", text_color=_chg >= 0 ? color.lime : color.red, text_size=ts)
+        table.cell(t, 4, _r, str.tostring(_dist, "#.#") + "%",  text_color=color.silver, text_size=ts)
+        table.cell(t, 5, _r, _bs > 900 ? "-" : str.tostring(_bs), text_color=color.silver, text_size=ts)
+    show ? _r + 1 : _r
+
+if barstate.islast
+    table.clear(t, 0, 0, 5, 21)
+    table.cell(t, 0, 0, "代號",    text_color=color.black, bgcolor=color.silver, text_size=ts)
+    table.cell(t, 1, 0, "狀態",    text_color=color.black, bgcolor=color.silver, text_size=ts)
+    table.cell(t, 2, 0, "收盤",    text_color=color.black, bgcolor=color.silver, text_size=ts)
+    table.cell(t, 3, 0, "漲跌",    text_color=color.black, bgcolor=color.silver, text_size=ts)
+    table.cell(t, 4, 0, "距上軌",  text_color=color.black, bgcolor=color.silver, text_size=ts)
+    table.cell(t, 5, 0, "縮口前",  text_color=color.black, bgcolor=color.silver, text_size=ts)
+    r = 1
+    r := f_row(r, s01, f01, n01, w01, d01, b01, t01, c01, g01)
+    r := f_row(r, s02, f02, n02, w02, d02, b02, t02, c02, g02)
+    r := f_row(r, s03, f03, n03, w03, d03, b03, t03, c03, g03)
+    r := f_row(r, s04, f04, n04, w04, d04, b04, t04, c04, g04)
+    r := f_row(r, s05, f05, n05, w05, d05, b05, t05, c05, g05)
+    r := f_row(r, s06, f06, n06, w06, d06, b06, t06, c06, g06)
+    r := f_row(r, s07, f07, n07, w07, d07, b07, t07, c07, g07)
+    r := f_row(r, s08, f08, n08, w08, d08, b08, t08, c08, g08)
+    r := f_row(r, s09, f09, n09, w09, d09, b09, t09, c09, g09)
+    r := f_row(r, s10, f10, n10, w10, d10, b10, t10, c10, g10)
+    r := f_row(r, s11, f11, n11, w11, d11, b11, t11, c11, g11)
+    r := f_row(r, s12, f12, n12, w12, d12, b12, t12, c12, g12)
+    r := f_row(r, s13, f13, n13, w13, d13, b13, t13, c13, g13)
+    r := f_row(r, s14, f14, n14, w14, d14, b14, t14, c14, g14)
+    r := f_row(r, s15, f15, n15, w15, d15, b15, t15, c15, g15)
+    r := f_row(r, s16, f16, n16, w16, d16, b16, t16, c16, g16)
+    r := f_row(r, s17, f17, n17, w17, d17, b17, t17, c17, g17)
+    r := f_row(r, s18, f18, n18, w18, d18, b18, t18, c18, g18)
+    r := f_row(r, s19, f19, n19, w19, d19, b19, t19, c19, g19)
+    r := f_row(r, s20, f20, n20, w20, d20, b20, t20, c20, g20)
+    if r == 1
+        table.cell(t, 0, 1, "今日無訊號", text_color=color.silver, text_size=ts)
+
+// 任一標的出現訊號即可設定警報
+anyFired = f01+f02+f03+f04+f05+f06+f07+f08+f09+f10+f11+f12+f13+f14+f15+f16+f17+f18+f19+f20 > 0
+alertcondition(anyFired, "有標的出現縮口突破", "台股縮口突破選股器：今日有標的觸發訊號")

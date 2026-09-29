@@ -1,0 +1,45 @@
+# ═══════════════════════════════════════════════════════════
+#  這個 repo 只放「程式與研究結論」，不放資料。
+#  快取全部可以用程式重建（見 CLAUDE.md「執行環境」），
+#  但很大（1.9 GB）且是證交所／交易所的資料，不該進版本控制。
+# ═══════════════════════════════════════════════════════════
+
+# ── 資料快取（1.9 GB，可重建）──
+# 用 **/cache/** 而不是 **/cache/ —— 目錄形式會讓 git 不進去看，
+# 下面的例外就會失效。
+**/cache/**
+# ★ 兩個例外：逐日／逐週累積的樣本外選股紀錄。
+#   這是唯一無法重建的東西（過了那天就拿不回來），最該有版本控制。
+#   ★ 目錄本身也要先解除排除 —— git 不會重新納入「父目錄已被排除」的檔案，
+#     只寫 !.../bb_picks/** 是無效的（踩過）。
+!taiwan/python/cache/bb_picks/
+!taiwan/python/cache/bb_picks/**
+!taiwan/python/cache/picks/
+!taiwan/python/cache/picks/**
+
+# ── 逐筆成交與套利研究的中間產物（crypto/arb，972 MB）──
+crypto/arb/cache/
+crypto/arb/results/
+*.log
+
+# ── 第三方專案（409 MB，自帶 .git 與 .env）──
+外部工具/
+
+# ── Python ──
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# ── 每天跑出來的選股輸出（可重建，每天都變）──
+# 研究用的掃描結果（*_sweep*.csv、backtest_*、*_trades.csv）不在此列，
+# 那些是結論的憑據，要留。
+signals_*.csv
+momentum_futures_*.csv
+momentum_plan_*.csv
+chip_picks_*.csv
+rebound_*.csv
+*.parquet
+
+# ── macOS ──
+.DS_Store

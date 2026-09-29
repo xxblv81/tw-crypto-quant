@@ -1,0 +1,104 @@
+//@version=5
+// 布林通道縮口突破策略 v2
+// 修正：縮口判斷恆為 false、無出場邏輯、BBW 誤畫在價格軸
+strategy("布林縮口突破 v2 (BB Squeeze Breakout)", overlay=true,
+     initial_capital        = 10000,
+     default_qty_type       = strategy.percent_of_equity,
+     default_qty_value      = 100,
+     commission_type        = strategy.commission.percent,
+     commission_value       = 0.05,
+     slippage               = 1,
+     pyramiding             = 0)
+
+// ─────────── 參數 ───────────
+gBB = "① 布林通道"
+length   = input.int(20,   "布林通道週期",  minval=5,  group=gBB)
+mult     = input.float(2.0,"標準差倍數",    minval=0.5, step=0.1, group=gBB)
+
+gSQ = "② 縮口判斷"
+bbwLen   = input.int(20,   "縮口回看週期",  minval=5,  group=gSQ)
+useAbs   = input.bool(false,"啟用絕對帶寬閾值", group=gSQ, tooltip="關閉時只要求『當根帶寬為區間最低』，可跨標的通用")
+bbwThr   = input.float(6.0,"縮口閾值 (%)",  minval=0.1, step=0.5, group=gSQ)
+sqWin    = input.int(10,   "縮口有效期 (根)", minval=1, group=gSQ, tooltip="縮口發生後 N 根內的突破仍視為有效")
+tcWin    = input.int(10,   "觸及下軌有效期 (根)", minval=1, group=gSQ)
+useExp   = input.bool(true,"要求帶寬正在擴張", group=gSQ)
+
+gEX = "③ 出場"
+atrLen   = input.int(14,   "ATR 週期",       minval=2, group=gEX)
+slATR    = input.float(2.0,"停損 = ATR ×",   minval=0.1, step=0.1, group=gEX)
+useTP    = input.bool(true,"啟用固定停利",    group=gEX)
+rr       = input.float(2.0,"停利風報比 R:R", minval=0.1, step=0.1, group=gEX)
+useTrail = input.bool(false,"啟用移動停利",   group=gEX)   // 回測顯示：開啟後反而砍掉贏家，預設關閉
+trigATR  = input.float(2.0,"移動停利啟動 = ATR ×", minval=0.1, step=0.1, group=gEX)
+trailATR = input.float(1.0,"移動停利回撤 = ATR ×", minval=0.1, step=0.1, group=gEX)
+useMidX  = input.bool(false,"跌破中線即出場",  group=gEX)
+
+gDT = "④ 回測區間"
+tStart = input.time(timestamp("01 Jan 2019 00:00 +0000"), "起始", group=gDT)
+tEnd   = input.time(timestamp("01 Jan 2030 00:00 +0000"), "結束", group=gDT)
+inRange = time >= tStart and time <= tEnd
+
+// ─────────── 指標 ───────────
+basis = ta.sma(close, length)
+dev   = mult * ta.stdev(close, length)
+upper = basis + dev
+lower = basis - dev
+bbw   = (upper - lower) / basis * 100
+atr   = ta.atr(atrLen)
+
+// ★ 核心修正：ta.lowest() 含當根，原本用 "<" 永遠不成立，必須用 "<="
+narrow = (bbw <= ta.lowest(bbw, bbwLen)) and (not useAbs or bbw < bbwThr)
+
+// 觸及下軌：用 low 比 close 更符合「觸及」語意
+touchLow = low <= lower
+
+bsNarrow = ta.barssince(narrow)
+bsTouch  = ta.barssince(touchLow)
+sqRecent = not na(bsNarrow) and bsNarrow <= sqWin
+tcRecent = not na(bsTouch)  and bsTouch  <= tcWin
+expanding = not useExp or bbw > bbw[1]
+
+crossMidUp = ta.crossover(close, basis)
+longCond   = sqRecent and tcRecent and expanding and crossMidUp and inRange
+
+// ─────────── 進出場 ───────────
+var float slPrice   = na
+var float tpPrice   = na
+var float trigPrice = na
+var float trailOff  = na
+
+if longCond and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+
+// 部位成立當根，用實際成交均價計算出場價位
+if strategy.position_size > 0 and strategy.position_size[1] == 0
+    e = strategy.position_avg_price
+    slPrice   := e - slATR * atr
+    tpPrice   := e + slATR * atr * rr
+    trigPrice := e + trigATR * atr
+    trailOff  := trailATR * atr / syminfo.mintick
+
+if strategy.position_size > 0
+    strategy.exit("Exit", from_entry="Long",
+         stop         = slPrice,
+         limit        = useTP    ? tpPrice   : na,
+         trail_price  = useTrail ? trigPrice : na,
+         trail_offset = useTrail ? trailOff  : na)
+    if useMidX and ta.crossunder(close, basis)
+        strategy.close("Long", comment="MidX")
+
+// ─────────── 繪圖 ───────────
+pU = plot(upper, "上軌", color.new(color.green, 0))
+pB = plot(basis, "中線", color.new(color.blue,  0))
+pL = plot(lower, "下軌", color.new(color.red,   0))
+fill(pU, pL, color=color.new(color.blue, 94))
+
+// BBW 不畫在價格軸（會壓扁圖表），改放資料視窗
+plot(bbw, "布林帶寬(%)", color.orange, display=display.data_window)
+
+bgcolor(narrow ? color.new(color.yellow, 85) : na, title="縮口")
+plotshape(touchLow,   "觸及下軌", location=location.belowbar, color=color.new(color.red, 0),  style=shape.circle,      size=size.tiny)
+plotshape(longCond,   "進場訊號", location=location.belowbar, color=color.new(color.lime, 0), style=shape.triangleup,  size=size.small)
+
+plot(strategy.position_size > 0 ? slPrice : na, "停損", color.new(color.red, 30), style=plot.style_linebr)
+plot(strategy.position_size > 0 and useTP ? tpPrice : na, "停利", color.new(color.teal, 30), style=plot.style_linebr)

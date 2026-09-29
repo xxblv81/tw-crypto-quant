@@ -1,0 +1,9 @@
+pandas>=2.0
+numpy>=1.24
+pyyaml>=6.0
+requests>=2.31
+pyarrow>=15.0        # 行情快取用 parquet
+lxml>=5.0            # fundamentals.py 解析 MOPS 月營收的 HTML 表格
+
+# yfinance>=0.2.40   # 備援後端（--source yf）。預設走證交所官方 API，不需要它
+# FinMind>=1.6       # 上櫃股若要除權息還原只能靠它（需申請 token）

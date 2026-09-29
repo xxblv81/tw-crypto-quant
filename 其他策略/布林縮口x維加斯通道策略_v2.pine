@@ -1,0 +1,134 @@
+//@version=5
+strategy("布林縮口突破 × 維加斯通道策略 v2",
+     overlay=true,
+     initial_capital=10000,
+     default_qty_type=strategy.percent_of_equity,
+     default_qty_value=100,
+     commission_type=strategy.commission.percent,
+     commission_value=0.05,
+     pyramiding=0,
+     calc_on_every_tick=false)
+
+// ═══════════════════ 1. 布林通道參數（原策略） ═══════════════════
+grpBB = "布林通道設定"
+length        = input.int(20,   title="布林通道週期",     group=grpBB)
+mult          = input.float(2.0, title="標準差倍數",       group=grpBB)
+bbw_length    = input.int(20,   title="縮口判斷週期",     group=grpBB)
+bbw_threshold = input.float(5,  title="縮口閾值(%)",      group=grpBB)
+
+basis = ta.sma(close, length)
+dev   = mult * ta.stdev(close, length)
+upper = basis + dev
+lower = basis - dev
+
+bbw     = (upper - lower) / basis * 100
+bbw_min = ta.lowest(bbw, bbw_length)
+narrow  = (bbw <= bbw_min) and (bbw < bbw_threshold)
+
+// 近期出現過縮口（放寬條件，避免「當根同時縮口+穿中線」太嚴格漏單）
+squeeze_lookback = input.int(5, title="縮口回看根數（N根內出現過縮口即可）", minval=1, group=grpBB)
+recent_narrow = ta.barssince(narrow) <= squeeze_lookback
+
+touch_lower_prev = close[1] <= lower[1]
+cross_mid_up     = ta.crossover(close, basis)
+
+// ═══════════════════ 2. 維加斯通道（Vegas Tunnel） ═══════════════════
+grpVegas = "維加斯通道設定"
+ema12  = ta.ema(close, input.int(12,  title="過濾線 EMA",   group=grpVegas))
+ema144 = ta.ema(close, input.int(144, title="通道 EMA 上緣", group=grpVegas))
+ema169 = ta.ema(close, input.int(169, title="通道 EMA 下緣", group=grpVegas))
+ema576 = ta.ema(close, 576)
+ema676 = ta.ema(close, 676)
+
+useBigTunnel  = input.bool(false, title="啟用長期通道過濾（EMA576/676，需較長歷史資料）", group=grpVegas)
+useSlopeCheck = input.bool(true,  title="要求通道向上傾斜（過濾盤整假多頭）", group=grpVegas)
+slopeLen      = input.int(5, title="通道斜率判斷根數", minval=1, group=grpVegas)
+
+tunnelTop = math.max(ema144, ema169)
+tunnelBot = math.min(ema144, ema169)
+
+// 多頭趨勢確認：價格與 EMA12 都站上通道（EMA12 未站上視為假突破）
+vegas_bull_core = close > tunnelTop and ema12 > tunnelTop
+tunnel_rising   = ema144 > ema144[slopeLen] and ema169 > ema169[slopeLen]
+big_bull        = close > math.max(ema576, ema676)
+
+vegas_bull = vegas_bull_core and (not useSlopeCheck or tunnel_rising) and (not useBigTunnel or big_bull)
+
+// ═══════════════════ 3. 進場邏輯 ═══════════════════
+grpEntry = "進場設定"
+useEntryA = input.bool(true, title="進場A：縮口突破（原策略＋維加斯過濾）", group=grpEntry)
+useEntryB = input.bool(true, title="進場B：維加斯通道回踩反彈（經典高勝率進場）", group=grpEntry)
+
+// 進場A：近期縮口 + 前K觸下軌 + 收盤向上穿越中線 + 維加斯多頭
+longA = useEntryA and recent_narrow and touch_lower_prev and cross_mid_up and vegas_bull
+
+// 進場B：多頭趨勢中回踩通道支撐後收回站上（低點進通道區、收盤收回通道上方且收陽）
+pullback_touch = low <= tunnelTop * 1.002 and low >= tunnelBot * 0.995
+bounce_up      = close > tunnelTop and close > open
+longB = useEntryB and vegas_bull_core and (not useSlopeCheck or tunnel_rising) and pullback_touch and bounce_up
+
+long_condition = (longA or longB) and strategy.position_size == 0
+
+// ═══════════════════ 4. 出場邏輯（高勝率型：分批停利＋保本） ═══════════════════
+grpExit = "出場設定"
+atrLen   = input.int(14,    title="ATR 週期",                  group=grpExit)
+slMult   = input.float(2.0, title="停損 = 進場價 - ATR ×",      group=grpExit)
+tp1Mult  = input.float(1.5, title="第一停利 = 進場價 + ATR ×",  group=grpExit)
+tp1Pct   = input.float(60,  title="第一停利出場比例(%)", minval=10, maxval=90, group=grpExit)
+useBE    = input.bool(true, title="達到TP1後停損移至保本",       group=grpExit)
+useTrail = input.bool(true, title="剩餘部位：收盤跌破EMA12出場（讓利潤奔跑）", group=grpExit)
+useTunnelStop = input.bool(true, title="硬性停損：收盤跌破通道下緣全部出場", group=grpExit)
+
+atr = ta.atr(atrLen)
+cross_down_ema12 = ta.crossunder(close, ema12)
+
+var float stopPrice = na
+var float tp1Price  = na
+var bool  tp1Hit    = false
+
+if long_condition
+    strategy.entry("Long", strategy.long, comment=longA ? "縮口突破" : "通道回踩")
+    stopPrice := close - atr * slMult
+    tp1Price  := close + atr * tp1Mult
+    tp1Hit    := false
+
+if strategy.position_size > 0
+    // TP1 觸發後移動至保本
+    if useBE and not tp1Hit and high >= tp1Price
+        tp1Hit := true
+        stopPrice := math.max(stopPrice, strategy.position_avg_price)
+    // 分批停利＋停損
+    strategy.exit("TP1", from_entry="Long", qty_percent=tp1Pct, limit=tp1Price, stop=stopPrice)
+    strategy.exit("SL",  from_entry="Long", stop=stopPrice)
+    // 移動出場：跌破 EMA12（只在已獲利保本後啟用，避免剛進場就被洗出）
+    if useTrail and tp1Hit and cross_down_ema12
+        strategy.close("Long", comment="跌破EMA12停利")
+    // 硬性風控：收盤跌破維加斯通道下緣，趨勢破壞，全部出場
+    if useTunnelStop and close < tunnelBot
+        strategy.close("Long", comment="跌破通道出場")
+
+if strategy.position_size == 0
+    stopPrice := na
+    tp1Price  := na
+    tp1Hit    := false
+
+// ═══════════════════ 5. 繪圖 ═══════════════════
+plot(basis, color=color.blue,  title="布林中線")
+plot(upper, color=color.green, title="布林上軌")
+plot(lower, color=color.red,   title="布林下軌")
+
+pTunnelTop = plot(ema144, color=color.new(color.orange, 0), title="EMA144")
+pTunnelBot = plot(ema169, color=color.new(color.purple, 0), title="EMA169")
+fill(pTunnelTop, pTunnelBot, color=vegas_bull_core ? color.new(color.green, 85) : color.new(color.gray, 85), title="維加斯通道")
+plot(ema12, color=color.yellow, title="EMA12 過濾線")
+plot(useBigTunnel ? ema576 : na, color=color.new(color.teal, 40), title="EMA576")
+plot(useBigTunnel ? ema676 : na, color=color.new(color.navy, 40), title="EMA676")
+
+plot(strategy.position_size > 0 ? stopPrice : na, color=color.red,   style=plot.style_linebr, title="停損價")
+plot(strategy.position_size > 0 ? tp1Price  : na, color=color.green, style=plot.style_linebr, title="TP1")
+
+plotshape(narrow, title="縮口", location=location.top, color=color.yellow, style=shape.triangledown, size=size.tiny)
+plotshape(longA, title="進場A", location=location.belowbar, color=color.lime,  style=shape.triangleup, size=size.small)
+plotshape(longB, title="進場B", location=location.belowbar, color=color.aqua,  style=shape.triangleup, size=size.small)
+
+bgcolor(vegas_bull ? color.new(color.green, 95) : na, title="維加斯多頭背景")

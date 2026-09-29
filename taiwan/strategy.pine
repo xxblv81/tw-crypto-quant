@@ -1,0 +1,148 @@
+//@version=5
+// ============================================================
+// 布林通道縮口突破策略 — 台股日線版 v4-TW
+// ------------------------------------------------------------
+// 本版採用台股專屬調參：4 ATR 停損 + 關閉量能過濾。
+// 9 檔測試中位數 PF 1.094（原 0.719），8/9 改善、6/9 越過 1.0。
+// 但回撤惡化（部分標的 50%+），樣本仍只有 12~21 筆，尚未達可交易水準。
+// 詳細數據見同資料夾 PARAMS.md 與 TUNING_LOG.md，待辦見專案根目錄 CLAUDE.md。
+// ============================================================
+strategy("布林縮口突破 v4-TW (台股日線)", overlay=true,
+     initial_capital        = 1000000,          // TWD
+     default_qty_type       = strategy.percent_of_equity,
+     default_qty_value      = 100,
+     commission_type        = strategy.commission.percent,
+     commission_value       = 0.3,              // 台股：手續費 0.1425%x2 + 證交稅 0.3% ≈ 來回 0.585%
+     slippage               = 2,
+     pyramiding             = 0)
+
+// ─────────── 1 布林通道 ───────────
+gBB = "1 布林通道"
+length = input.int(20,   "布林通道週期", minval=5,   group=gBB)
+mult   = input.float(2.0,"標準差倍數",   minval=0.5, step=0.1, group=gBB)
+
+// ─────────── 2 縮口與進場 ───────────
+gSQ = "2 縮口與進場"
+bbwLen    = input.int(20, "縮口回看週期",   minval=5, group=gSQ, tooltip="台股日線用 20（4H 加密貨幣用 20，日線 BTC 也是 20）")
+sqWin     = input.int(20, "縮口有效期 (根)", minval=1, group=gSQ)
+useExp    = input.bool(true, "要求帶寬正在擴張", group=gSQ)
+entryMode = input.string("中線確認", "進場觸發", options=["上軌突破","中線反轉","中線確認"], group=gSQ, tooltip="中線確認＝兩段式：縮口後穿越中線進入候選，之後出現帶量表態紅K才進場。全市場 1027 檔實測 PF 1.363→1.408、回撤 44.4%→43.1%")
+midWin    = input.int(30, "候選有效期 (根)", minval=1, group=gSQ, tooltip="實測峰值在 30：5根 PF 1.312／10根 1.406／30根 1.483／60根 1.439／不限 1.437")
+midGap    = input.int(1, "穿越當根不算 (根)", minval=0, group=gSQ, tooltip="1 = 要「之後」出現的紅K，穿越當根不進場")
+useBullK  = input.bool(true, "需表態紅K", group=gSQ, tooltip="收紅即可。加「實體>50%」「收高檔>60%」實測都變差")
+useTouch  = input.bool(false, "需先觸及下軌", group=gSQ)
+tcWin     = input.int(10, "觸軌有效期 (根)", minval=1, group=gSQ)
+
+// ─────────── 3 過濾 ───────────
+gF = "3 過濾"
+useTrend = input.bool(true, "趨勢過濾 (只在均線上做多)", group=gF, tooltip="BTC 4H 實測：關掉會讓 PF 從 1.46 掉到 1.12、回撤翻倍")
+trendLen = input.int(20,    "趨勢均線長度", minval=20, group=gF, tooltip="2026-09-02 由 200 改 20，目標是增加當日可買訊號（204 vs 171 檔）。全市場 PF 幾乎持平（MA20~MA240 都在 1.34~1.39），代價是回撤 39.5%→44.4%")
+useVol   = input.bool(true, "成交量確認",   group=gF, tooltip="★ 兩段式下由有害轉為有益。舊結論是把量能壓在「穿越當根」造成的，那時量還沒出來。當作確認訊號時 1.2 倍是峰值：1.0→PF 1.387、1.2→1.408、1.5→1.353")
+volLen   = input.int(5,     "量能均線長度", minval=2,  group=gF)
+volMult  = input.float(1.2, "量能倍數 (對 5 日均量)", minval=0.1, step=0.1, group=gF)
+volSince = input.float(1.2, "量能倍數 (對穿越中線以來均量)", minval=0, step=0.1, group=gF, tooltip="0=關閉。只比 5 日均量不夠：若整段候選期都在放量，這根就不算表態。實測 1.0~1.2 是高原")
+useStack = input.bool(true, "需多頭排列 MA20>MA60>MA120", group=gF, tooltip="★ 全專案對回撤改善最大的單一改動：45.2%→33.5%。必須用長天期，5>10>20 反而變差")
+
+// ─────────── 4 出場 ───────────
+gEX = "4 出場"
+atrLen   = input.int(14,    "ATR 週期",     minval=2, group=gEX)
+slATR    = input.float(4.0, "停損 = ATR x", minval=0.1, step=0.1, group=gEX, tooltip="台股實測：4 ATR 讓 9 檔中位數 PF 從 0.72 升到 1.09；2 ATR 在台股太緊")
+useTP    = input.bool(true, "啟用固定停利", group=gEX)
+rr       = input.float(2.0, "停利風報比 R:R", minval=0.1, step=0.1, group=gEX)
+useTrail = input.bool(false,"啟用移動停利", group=gEX, tooltip="BTC 實測：開啟會砍掉贏家（PF 1.44→1.36），預設關閉")
+trigATR  = input.float(2.0, "移動停利啟動 = ATR x", minval=0.1, step=0.1, group=gEX)
+trailATR = input.float(1.0, "移動停利回撤 = ATR x", minval=0.1, step=0.1, group=gEX)
+
+// ─────────── 5 回測區間 ───────────
+gDT = "5 回測區間"
+tStart  = input.time(timestamp("01 Jan 2005 00:00 +0800"), "起始", group=gDT)
+tEnd    = input.time(timestamp("01 Jan 2030 00:00 +0800"), "結束", group=gDT)
+inRange = time >= tStart and time <= tEnd
+
+// ─────────── 指標 ───────────
+basis   = ta.sma(close, length)
+dev     = mult * ta.stdev(close, length)
+upper   = basis + dev
+lower   = basis - dev
+bbw     = (upper - lower) / basis * 100
+atr     = ta.atr(atrLen)
+trendMA = ta.sma(close, trendLen)
+
+// 縮口：當根帶寬為區間最低
+// ★ ta.lowest() 含當根，必須用 <=（用 < 會恆為 false，這是原始版本一筆單都不會進的原因）
+narrow   = bbw <= ta.lowest(bbw, bbwLen)
+bsNarrow = ta.barssince(narrow)
+sqRecent = not na(bsNarrow) and bsNarrow <= sqWin
+expanding = not useExp or bbw > bbw[1]
+
+bsLow       = ta.barssince(low <= lower)
+tcLowRecent = not na(bsLow) and bsLow <= tcWin
+
+crossUpMid = ta.crossover(close, basis)
+bsCross    = ta.barssince(crossUpMid)
+midConfirm = not na(bsCross) and bsCross >= midGap and bsCross <= midWin and close > basis
+bullK      = not useBullK or close > open
+
+trigLong = entryMode == "上軌突破" ? ta.crossover(close, upper) :
+           entryMode == "中線確認" ? midConfirm :
+           ta.crossover(close, basis)
+
+volMa = ta.sma(nz(volume), volLen)
+volOK = not useVol or volMa <= 0 or volume > volMa * volMult
+
+// 穿越中線以來的平均量（不含當根）
+var float sinceSum = 0.0
+var int   sinceCnt = 0
+if crossUpMid
+    sinceSum := 0.0
+    sinceCnt := 0
+meanSince = sinceCnt > 0 ? sinceSum / sinceCnt : na
+volSinceOK = volSince <= 0 or na(meanSince) or volume > meanSince * volSince
+sinceSum := sinceSum + nz(volume)
+sinceCnt := sinceCnt + 1
+
+ma20  = ta.sma(close, 20)
+ma60  = ta.sma(close, 60)
+ma120 = ta.sma(close, 120)
+stackOK = not useStack or (close > ma20 and ma20 > ma60 and ma60 > ma120)
+trendUp = not useTrend or close > trendMA
+
+longCond = inRange and sqRecent and expanding and trigLong and volOK and volSinceOK and stackOK and trendUp and bullK and (not useTouch or tcLowRecent)
+
+// ─────────── 進出場（只做多，無任何做空邏輯） ───────────
+var float slPrice   = na
+var float tpPrice   = na
+var float trigPrice = na
+var float trailOff  = na
+
+if longCond and strategy.position_size == 0
+    strategy.entry("Long", strategy.long)
+
+// 部位成立當根，用實際成交均價計算出場價位
+if strategy.position_size > 0 and strategy.position_size[1] == 0
+    e = strategy.position_avg_price
+    slPrice   := e - slATR * atr
+    tpPrice   := e + slATR * atr * rr
+    trigPrice := e + trigATR * atr
+    trailOff  := trailATR * atr / syminfo.mintick
+
+if strategy.position_size > 0
+    strategy.exit("Exit", from_entry="Long",
+         stop         = slPrice,
+         limit        = useTP    ? tpPrice   : na,
+         trail_price  = useTrail ? trigPrice : na,
+         trail_offset = useTrail ? trailOff  : na)
+
+// ─────────── 繪圖 ───────────
+pU = plot(upper, "上軌", color.new(color.green, 0))
+pB = plot(basis, "中線", color.new(color.blue,  0))
+pL = plot(lower, "下軌", color.new(color.red,   0))
+fill(pU, pL, color=color.new(color.blue, 94))
+plot(useTrend ? trendMA : na, "趨勢均線", color.new(color.gray, 0), linewidth=2)
+plot(bbw, "布林帶寬(%)", color.orange, display=display.data_window)
+plot(useStack ? ma60 : na, "MA60", color.new(color.olive, 40))
+plot(useStack ? ma120 : na, "MA120", color.new(color.maroon, 40))
+bgcolor(narrow ? color.new(color.yellow, 85) : na, title="縮口")
+plotshape(longCond, "多單訊號", location=location.belowbar, color=color.new(color.lime, 0), style=shape.triangleup, size=size.small)
+plot(strategy.position_size > 0 ? slPrice : na, "停損", color.new(color.red, 30), style=plot.style_linebr)
+plot(strategy.position_size > 0 and useTP ? tpPrice : na, "停利", color.new(color.teal, 30), style=plot.style_linebr)

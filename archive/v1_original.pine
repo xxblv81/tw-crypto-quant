@@ -1,0 +1,60 @@
+//@version=5
+// ============================================================
+// 【原始版本 — 僅供對照，不要使用】
+// 已知致命問題：
+//   1. narrow 條件恆為 false（ta.lowest 含當根，"<" 永不成立）→ 一筆單都不會進
+//   2. 完全沒有出場邏輯 → 進場後永不平倉
+//   3. 三個條件被要求同一根 K 棒成立，且互相矛盾
+//   4. plot(bbw) 畫在 overlay=true 的價格軸上會壓扁圖表
+// 修正版見 ../strategies/
+// ============================================================
+strategy("布林通道縮口突破策略", overlay=true)
+
+// 參數設定
+length = input.int(20, title="布林通道週期")
+mult = input.float(2.0, title="標準差倍數")
+bbw_length = input.int(20, title="縮口判斷週期")
+bbw_threshold = input.float(5, title="縮口閾值(%)")
+
+// 計算布林通道
+basis = ta.sma(close, length)
+dev = mult * ta.stdev(close, length)
+upper = basis + dev
+lower = basis - dev
+
+// 計算布林帶寬度百分比
+bbw = (upper - lower) / basis * 100
+
+// 判斷縮口：當前BBW小於過去bbw_length根K棒的最低值且低於閾值
+bbw_min = ta.lowest(bbw, bbw_length)
+narrow = (bbw < bbw_min) and (bbw < bbw_threshold)   // ★ BUG：恆為 false
+
+// 判斷前一根K棒是否觸及下布林帶
+touch_lower_prev = close[1] <= lower[1]
+
+// 判斷本根K棒收盤價是否由下穿越中線
+cross_mid_up = ta.crossover(close, basis)
+
+// 進場條件：縮口 + 前K棒觸及下軌 + 本K棒穿越中線向上
+long_condition = narrow and touch_lower_prev and cross_mid_up
+
+if (long_condition)
+    strategy.entry("Long", strategy.long)
+// ★ BUG：沒有任何出場邏輯
+
+// 畫出布林通道
+plot(basis, color=color.blue, title="中線 (SMA)")
+plot(upper, color=color.green, title="上軌")
+plot(lower, color=color.red, title="下軌")
+
+// 畫出布林帶寬度（★ BUG：畫在價格軸上會壓扁圖表）
+plot(bbw, title="布林帶寬(%)", color=color.orange, linewidth=1, style=plot.style_line)
+
+// 縮口時在圖上標記
+plotshape(narrow, title="縮口", location=location.top, color=color.yellow, style=shape.triangledown, size=size.tiny)
+
+// 觸及下軌標記
+plotshape(touch_lower_prev, title="觸及下軌", location=location.belowbar, color=color.red, style=shape.circle, size=size.tiny)
+
+// 穿越中線向上標記
+plotshape(cross_mid_up, title="穿越中線向上", location=location.belowbar, color=color.lime, style=shape.triangleup, size=size.tiny)

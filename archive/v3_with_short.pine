@@ -1,0 +1,110 @@
+//@version=5
+// 布林通道縮口突破策略 v3
+strategy("布林縮口突破 v3", overlay=true, initial_capital=10000,
+     default_qty_type=strategy.percent_of_equity, default_qty_value=100,
+     commission_type=strategy.commission.percent, commission_value=0.05,
+     slippage=1, pyramiding=0)
+
+gBB = "1 布林通道"
+length = input.int(20, "布林通道週期", minval=5, group=gBB)
+mult   = input.float(2.0,"標準差倍數", minval=0.5, step=0.1, group=gBB)
+
+gSQ = "2 縮口與進場"
+bbwLen  = input.int(50, "縮口回看週期", minval=5, group=gSQ)
+sqWin   = input.int(20, "縮口有效期 (根)", minval=1, group=gSQ)
+useExp  = input.bool(true, "要求帶寬正在擴張", group=gSQ)
+entryMode = input.string("上軌突破", "進場觸發", options=["上軌突破","中線反轉"], group=gSQ)
+useTouch  = input.bool(false, "需先觸及對側軌", group=gSQ)
+tcWin     = input.int(10, "觸軌有效期 (根)", minval=1, group=gSQ)
+useShort  = input.bool(false, "啟用做空", group=gSQ)  // 回測：空方在 BTC/ETH 4H 大幅虧損，預設關閉
+
+gF = "3 過濾"
+useTrend = input.bool(true, "趨勢過濾 (SMA)", group=gF)
+trendLen = input.int(200, "趨勢均線長度", minval=20, group=gF)
+useVol   = input.bool(true, "成交量確認", group=gF)
+volLen   = input.int(20, "量能均線長度", minval=2, group=gF)
+volMult  = input.float(1.5, "量能倍數", minval=0.1, step=0.1, group=gF)
+
+gEX = "4 出場"
+atrLen   = input.int(14, "ATR 週期", minval=2, group=gEX)
+slATR    = input.float(2.0,"停損 = ATR x", minval=0.1, step=0.1, group=gEX)
+useTP    = input.bool(true,"啟用固定停利", group=gEX)
+rr       = input.float(2.0,"停利風報比 R:R", minval=0.1, step=0.1, group=gEX)
+useTrail = input.bool(false,"啟用移動停利", group=gEX)
+trigATR  = input.float(2.0,"移動停利啟動 = ATR x", minval=0.1, step=0.1, group=gEX)
+trailATR = input.float(1.0,"移動停利回撤 = ATR x", minval=0.1, step=0.1, group=gEX)
+
+gDT = "5 回測區間"
+tStart = input.time(timestamp("01 Jan 2019 00:00 +0000"), "起始", group=gDT)
+tEnd   = input.time(timestamp("01 Jan 2030 00:00 +0000"), "結束", group=gDT)
+inRange = time >= tStart and time <= tEnd
+
+basis = ta.sma(close, length)
+dev   = mult * ta.stdev(close, length)
+upper = basis + dev
+lower = basis - dev
+bbw   = (upper - lower) / basis * 100
+atr   = ta.atr(atrLen)
+trendMA = ta.sma(close, trendLen)
+
+narrow = bbw <= ta.lowest(bbw, bbwLen)
+bsNarrow = ta.barssince(narrow)
+sqRecent = not na(bsNarrow) and bsNarrow <= sqWin
+expanding = not useExp or bbw > bbw[1]
+
+bsLow = ta.barssince(low  <= lower)
+bsUp  = ta.barssince(high >= upper)
+tcLowRecent = not na(bsLow) and bsLow <= tcWin
+tcUpRecent  = not na(bsUp)  and bsUp  <= tcWin
+
+trigLong  = entryMode == "上軌突破" ? ta.crossover(close, upper)  : ta.crossover(close, basis)
+trigShort = entryMode == "上軌突破" ? ta.crossunder(close, lower) : ta.crossunder(close, basis)
+
+volMa = ta.sma(nz(volume), volLen)
+volOK = not useVol or volMa <= 0 or volume > volMa * volMult
+
+trendUp = not useTrend or close > trendMA
+trendDn = not useTrend or close < trendMA
+
+longCond  = inRange and sqRecent and expanding and trigLong  and volOK and trendUp and (not useTouch or tcLowRecent)
+shortCond = useShort and inRange and sqRecent and expanding and trigShort and volOK and trendDn and (not useTouch or tcUpRecent)
+
+var float slPrice = na
+var float tpPrice = na
+var float trigPrice = na
+var float trailOff = na
+
+if longCond and strategy.position_size <= 0
+    strategy.entry("Long", strategy.long)
+if shortCond and strategy.position_size >= 0
+    strategy.entry("Short", strategy.short)
+
+if strategy.position_size > 0 and strategy.position_size[1] <= 0
+    e = strategy.position_avg_price
+    slPrice   := e - slATR * atr
+    tpPrice   := e + slATR * atr * rr
+    trigPrice := e + trigATR * atr
+    trailOff  := trailATR * atr / syminfo.mintick
+if strategy.position_size < 0 and strategy.position_size[1] >= 0
+    e = strategy.position_avg_price
+    slPrice   := e + slATR * atr
+    tpPrice   := e - slATR * atr * rr
+    trigPrice := e - trigATR * atr
+    trailOff  := trailATR * atr / syminfo.mintick
+
+if strategy.position_size > 0
+    strategy.exit("XL", from_entry="Long", stop=slPrice, limit=useTP ? tpPrice : na, trail_price=useTrail ? trigPrice : na, trail_offset=useTrail ? trailOff : na)
+if strategy.position_size < 0
+    strategy.exit("XS", from_entry="Short", stop=slPrice, limit=useTP ? tpPrice : na, trail_price=useTrail ? trigPrice : na, trail_offset=useTrail ? trailOff : na)
+
+pU = plot(upper, "上軌", color.new(color.green, 0))
+pB = plot(basis, "中線", color.new(color.blue, 0))
+pL = plot(lower, "下軌", color.new(color.red, 0))
+fill(pU, pL, color=color.new(color.blue, 94))
+plot(useTrend ? trendMA : na, "趨勢均線", color.new(color.gray, 0), linewidth=2)
+plot(bbw, "布林帶寬(%)", color.orange, display=display.data_window)
+bgcolor(narrow ? color.new(color.yellow, 85) : na, title="縮口")
+plotshape(longCond,  "多單訊號", location=location.belowbar, color=color.new(color.lime, 0),   style=shape.triangleup,   size=size.small)
+plotshape(shortCond, "空單訊號", location=location.abovebar, color=color.new(color.fuchsia, 0), style=shape.triangledown, size=size.small)
+plot(strategy.position_size != 0 ? slPrice : na, "停損", color.new(color.red, 30), style=plot.style_linebr)
+plot(strategy.position_size != 0 and useTP ? tpPrice : na, "停利", color.new(color.teal, 30), style=plot.style_linebr)
