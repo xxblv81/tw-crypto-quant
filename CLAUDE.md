@@ -272,6 +272,17 @@ Q1 5/15、Q2 8/14、Q3 11/14、年報 3/31，回測要用公布期限當可見�
 2. **加密貨幣的「已驗證」只對 BTCUSDT 成立。** 同一組參數在 ETHUSDT 4H 是虧損的，
    詳見 `crypto/SWEEP_RESULTS.md`。
 
+## GitHub（2026-09-29 建立）
+
+**私人 repo：https://github.com/xxblv81/tw-crypto-quant**（帳號 `xxblv81`，`gh` 已登入並設為 git 憑證）
+
+- 只放程式與研究結論（約 1.4 MB）。快取 1.9 GB 全部排除，可用 `twse.py` 等重建。
+- ★ **唯一例外是 `cache/bb_picks/` 與 `cache/picks/`** —— 樣本外選股紀錄，過了當天就無法重建，
+  所以進版本控制。`.gitignore` 必須連目錄本身一起解除排除（`!…/bb_picks/` 再 `!…/bb_picks/**`），
+  只寫後者無效。
+- `外部工具/`（TradingAgents）是別人的 repo，自帶 `.git` 與含真實 API key 的 `.env`，**永遠不要納入**。
+- **不會自動同步。** 使用者手動跑選股、存檔只在本機累積，要推上去得 commit + push。
+
 ## 工作守則（重要）
 
 **0. 台股一律排除金融保險業與電信業者（2026-09-15 使用者指示，永久）。**
